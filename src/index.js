@@ -1,95 +1,70 @@
-// index.js
-import { fetchBreeds } from './cat-api';
-import { fetchCatByBreed } from './cat-api';
+import axios from 'axios';
+import { fetchBreeds, fetchCatByBreed } from './cat-api';
+import SlimSelect from 'slim-select';
+import Notiflix from 'notiflix';
 
-const breedSelect = document.querySelector('select.breed-select');
-const loader = document.querySelector('p.loader');
-const catInfoContainer = document.querySelector('div.cat-info');
-const errorElement = document.querySelector('p.error');
+// https://api.thecatapi.com/v1/breeds
 
-// Функція для показу завантажувача
-const showLoader = () => {
+const loader = document.querySelector('.loader');
+const errors = document.querySelector('.error');
+const catInfo = document.querySelector('.cat-info');
+const breadSelect = document.querySelector('.breed-select');
+
+breadSelect.addEventListener('change', handleChange);
+
+errors.style.visibility = 'hidden';
+breadSelect.style.visibility = 'hidden';
+loader.style.display = 'block';
+
+fetchBreeds()
+  .then(responce => {
+    breadSelect.style.visibility = 'visible';
+    loader.style.display = 'none';
+    const pets = responce
+      .map(({ id, name }) => {
+        return `<option value="${id}">${name}</option>`;
+      })
+      .join('');
+    breadSelect.insertAdjacentHTML('beforeend', pets);
+  })
+  .catch(error => {
+    setTimeout(() => {
+      Notiflix.Notify.warning(`${error}`);
+      loader.style.display = 'none';
+    }, 500);
+  });
+
+function handleChange() {
+  catInfo.style.visibility = 'hidden';
   loader.style.display = 'block';
-};
 
-// Функція для приховування завантажувача
-const hideLoader = () => {
-  loader.style.display = 'none';
-};
+  const selectBread = breadSelect.value;
+  fetchCatByBreed(selectBread)
+    .then(responce => {
+      catInfo.style.visibility = 'visible';
+      loader.style.display = 'none';
 
-// Функція для приховування/показу елементів інтерфейсу
-const toggleUI = showUI => {
-  breedSelect.style.display = showUI ? 'block' : 'none';
-  catInfoContainer.style.display = showUI ? 'block' : 'none';
-};
-
-// Функція для виведення помилки та приховування інтерфейсу
-const showError = message => {
-  console.error(message);
-  errorElement.style.display = 'block';
-  toggleUI(false);
-  hideLoader();
-};
-
-// Обробник зміни вибору породи
-breedSelect.addEventListener('change', async event => {
-  const selectedBreedId = event.target.value;
-
-  // При зміні вибору породи приховуємо помилку та показуємо завантажувач
-  errorElement.style.display = 'none';
-  showLoader();
-
-  try {
-    // Викликаємо функцію fetchCatByBreed() при зміні вибору породи
-    const catInfo = await fetchCatByBreed(selectedBreedId);
-
-    // Відображаємо інформацію про кота на сторінці
-    toggleUI(true);
-    hideLoader();
-
-    // Решта коду для виведення інформації про кота
-    const cat = catInfo[0];
-    const catImage = document.createElement('img');
-    catImage.src = cat.url;
-
-    const breedName = document.createElement('h2');
-    breedName.textContent = cat.breeds[0].name;
-
-    const description = document.createElement('p');
-    description.textContent = `Опис: ${cat.breeds[0].description}`;
-
-    const temperament = document.createElement('p');
-    temperament.textContent = `Темперамент: ${cat.breeds[0].temperament}`;
-
-    catInfoContainer.innerHTML = '';
-    catInfoContainer.appendChild(catImage);
-    catInfoContainer.appendChild(breedName);
-    catInfoContainer.appendChild(description);
-    catInfoContainer.appendChild(temperament);
-  } catch (error) {
-    // Виводимо помилку та приховуємо інтерфейс
-    showError('При отриманні інформації про кота виникла помилка.');
-  }
-});
-
-// Ініціалізація при завантаженні сторінки
-window.addEventListener('load', async () => {
-  // Приховуємо помилку, завантажувач та інтерфейс
-  errorElement.style.display = 'none';
-  hideLoader();
-  toggleUI(false);
-
-  try {
-    // Викликаємо функцію fetchBreeds() для заповнення селекта порід
-    const breeds = await fetchBreeds();
-
-    // Решта коду для виведення списку порід
-    // ...
-
-    // Показуємо інтерфейс
-    toggleUI(true);
-  } catch (error) {
-    // Виводимо помилку та приховуємо інтерфейс
-    showError('При отриманні списку порід виникла помилка.');
-  }
-});
+      const informations = responce
+        .map(({ url, breeds }) => {
+          return `
+            <img class="breeds-img" src="${url}"/>
+            <h2 class="breeds-caption">${breeds[0].name}</h2>
+            <div class="breeds-container">
+            <h3 class="breeds-title">${breeds[0].temperament}</h3>
+            <p class="breeds-text">${breeds[0].origin}</p>
+            <p class="breeds-text">Weight: ${breeds[0].weight.imperial}, ${breeds[0].weight.metric}</p>
+            <p class="breeds-text">Life span: ${breeds[0].life_span}</p>
+            <a class="breeds-link" href="${breeds[0].wikipedia_url}">Wikipedia info</a>
+            </div>
+            `;
+        })
+        .join('');
+      catInfo.innerHTML = `${informations}`;
+    })
+    .catch(error => {
+      setTimeout(() => {
+        Notiflix.Notify.warning(`${error}`);
+        loader.style.display = 'none';
+      }, 500);
+    });
+}
